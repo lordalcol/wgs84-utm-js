@@ -22,19 +22,25 @@ In the code `LAMBDA` is the latitude and `PHI` the longitude, as in the article.
 
 ## What I fixed in 2026
 
-- **Southern hemisphere.** The false northing was missing, so every point south of the equator came out with a negative northing.
-- **WGS84 ellipsoid.** Its flattening was the GRS80 value (1/298.257222101) instead of WGS84's (1/298.257223563). The two differ by 0.1 mm in the semi-minor axis, so the results hardly moved.
-- **Second eccentricity.** The Gauss formulas computed e'² as e⁴/(1 − e²) instead of e²/(1 − e²). Near the edge of a zone this put the easting off by up to 14 cm.
-- **Scale change.** The difference in scale between the two datums was `dest − dest`, always 0. ED50 has no scale change, so this one never showed.
-- **UTM zone.** The zone was worked out but not returned. `convert()` now returns the zone and the hemisphere.
-- **Negative angles.** `toRadians(-14, 1, 30)` gave −13° 58′ 30″ instead of −14° 1′ 30″.
+- In the southern hemisphere the false northing was missing, so every point south of the equator came out with a negative northing.
+- The WGS84 flattening was the GRS80 value (1/298.257222101) instead of WGS84's (1/298.257223563). The two differ by 0.1 mm in the semi-minor axis, so the results hardly moved.
+- The Gauss formulas computed e'² as e⁴/(1 − e²) instead of e²/(1 − e²). Near the edge of a zone this put the easting off by up to 14 cm.
+- The difference in scale between the two datums was `dest − dest`, always 0. ED50 has no scale change, so this one never showed.
+- The UTM zone was worked out but not returned. `convert()` now returns the zone and the hemisphere.
+- `toRadians(-14, 1, 30)` gave −13° 58′ 30″ instead of −14° 1′ 30″.
 - Smaller things: the integrand leaked into a global variable, and the unused ITA40 datum is gone. The comments are now in English.
 
 The ED50 shift is the mean one for Europe (EPSG:1133), so the datum itself is good to a few metres. The arithmetic is now within 1 cm of an exact reference (a geocentric shift, then the Krüger series for the projection) at every test point, from Lisbon to Helsinki and Sydney.
 
 ## Running it
 
-Open `index.html` in a browser. The scripts are plain 2008 JavaScript with no build step.
+There is no build step. Serve the folder (for example `python -m http.server`) and open:
+
+- `index.html`, the 2026 page: a form and an OpenStreetMap map (with [Leaflet](https://leafletjs.com)). Click the map or type a position and it converts it with the 2008 scripts.
+- `how-it-works.html`, the formulas, typeset with [KaTeX](https://katex.org).
+- `2008.html`, the original 2008 page.
+
+Leaflet and KaTeX are in `vendor/`, with their licences. The map tiles come from the OpenStreetMap tile servers, which need no key.
 
 The tests need Node 18 or later:
 

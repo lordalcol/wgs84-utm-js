@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How it works: WGS84 to UTM (ED50)</title>
+    <meta name="description" content="The geodesy behind a 2008 JavaScript coordinate converter: ellipsoids, the Molodensky formulas, the Gauss projection and UTM." />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="vendor/katex/katex.min.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="docs.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <a href="index.html"><img class="logo" src="favicon.svg" alt="" /></a>
+        <div>
+          <h1><a href="index.html">WGS84 to UTM (ED50)</a></h1>
+          <p>How it works</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="btn ghost" href="index.html">Converter</a>
+        <a class="btn ghost" href="https://github.com/lordalcol/wgs84-utm-js">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="doc">
+      <h1>How it works</h1>
+      <p class="lede">
+        In 2008 I wrote a converter in JavaScript from WGS84 coordinates to UTM on the ED50 datum, and described it in
+        an article for <em>Dev</em>, an Italian programming magazine (<a href="docs/Trasformazione%20di%20coordinate%20geografiche%20in%20Javascript%20(2008).pdf">the article, in Italian</a>).
+        This page sets out the formulas the code implements, with the fixes I made when I restored it in 2026.
+      </p>
+
+      <h2>The problem</h2>
+      <p>
+        A GPS receiver, Google Maps or OpenStreetMap give a position as latitude, longitude and height on WGS84. Most
+        official European maps drawn before 1984 use UTM coordinates on ED50, in metres. Two things separate them.
+      </p>
+      <p>
+        The <strong>datum</strong> is different. Each datum approximates the Earth with its own ellipsoid, of a
+        different size and in a different position, so the same point has different latitude and longitude on the two.
+        Around Trieste the ED50 latitude is 3.2″ larger and the longitude 3.4″ larger, which is about 98 m north and
+        74 m east.
+      </p>
+      <p>
+        The <strong>projection</strong> is different. UTM divides the Earth into 60 zones 6° wide and draws each one on
+        a plane with the Gauss (transverse Mercator) projection, so that positions are easting and northing in metres.
+      </p>
+      <p>So the conversion has three steps:</p>
+      <ol>
+        <li>move the point from the WGS84 ellipsoid to the ED50 ellipsoid, with the Molodensky formulas;</li>
+        <li>project it onto the plane of its UTM zone, with the Gauss formulas;</li>
+        <li>apply the UTM scale factor and false origin.</li>
+      </ol>
+      <p class="note">
+        Notation: on this page \(\varphi\) is the latitude and \(\lambda\) the longitude, as usual. The 2008 code calls
+        them the other way round: <code>LAMBDA</code> is the latitude and <code>PHI</code> the longitude. Angles are in
+        radians.
+      </p>
+
+      <h2>The ellipsoids</h2>
+      <p>
+        An ellipsoid of revolution is defined by its semi-major axis \(a\) and its flattening \(f\). From them come the
+        first eccentricity and the two radii of curvature at latitude \(\varphi\): \(M\) along the meridian and \(N\)
+        across it, in the prime vertical. In the code they are <code>RHO</code> and <code>N_G</code> (the
+        <em>gran normale</em>).
+      </p>
+      $$e^2 = 2f - f^2 \qquad M(\varphi) = \frac{a\,(1-e^2)}{\left(1-e^2\sin^2\varphi\right)^{3/2}} \qquad N(\varphi) = \frac{a}{\sqrt{1-e^2\sin^2\varphi}}$$
+      <table>
+        <thead>
+          <tr><th>Datum</th><th>Ellipsoid</th><th>\(a\)</th><th>\(1/f\)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>WGS84</td><td>WGS84</td><td>6 378 137 m</td><td>298.257223563</td></tr>
+          <tr><td>ED50</td><td>International 1924 (Hayford)</td><td>6 378 388 m</td><td>297</td></tr>
+        </tbody>
+      </table>
+      <p>
+        The 2008 code had 298.257222101 for WGS84, which is the flattening of GRS80, a slightly different ellipsoid.
+        The semi-minor axes differ by 0.1 mm, so it made no visible difference, but it is fixed.
+      </p>
+
+      <h2>Step 1: Molodensky, from WGS84 to ED50</h2>
+      <p>
+        Moving a point between datums exactly means converting its latitude, longitude and height to geocentric
+        \(X, Y, Z\), shifting (and possibly rotating and scaling) those, and converting back. The Molodensky formulas do
+        it in one step: they give the changes \(\Delta\varphi\), \(\Delta\lambda\), \(\Delta h\) directly, to first
+        order in the small differences between the datums.
+      </p>
+      <p>
+        The datum differences are the shift of the origin \(\Delta X, \Delta Y, \Delta Z\), small rotations
+        \(\varepsilon_x, \varepsilon_y, \varepsilon_z\), a scale change \(\Delta K\), and the differences of the
+        ellipsoids, \(\Delta a = a_{\text{WGS84}} - a_{\text{ED50}}\) and \(\Delta f = f_{\text{WGS84}} - f_{\text{ED50}}\).
+        For ED50 the code uses the mean shift for Europe (EPSG:1133), \(\Delta X = -87\) m, \(\Delta Y = -98\) m,
+        \(\Delta Z = -121\) m, with no rotation or scale change. These are the ED50 origin values; going from WGS84 to
+        ED50 the point moves by the opposite, \(+87, +98, +121\) m. \(a, f, e^2, M, N\) are those of WGS84 at the
+        starting point.
+      </p>
+      $$\begin{aligned}
+      \Delta\varphi = \frac{1}{M+h}\Big[\,&\sin\varphi\cos\lambda\,\Delta X + \sin\varphi\sin\lambda\,\Delta Y - \cos\varphi\,\Delta Z
+        + \Big(\frac{a^2}{N}+h\Big)\big(\sin\lambda\,\varepsilon_x - \cos\lambda\,\varepsilon_y\big) \\
+        &- e^2 N \sin\varphi\cos\varphi\,\Big(\Delta K + \frac{\Delta a}{a}\Big)
+        - \big(M + (1-e^2)N\big)\sin\varphi\cos\varphi\,\frac{\Delta f}{1-f}\,\Big]
+      \end{aligned}$$
+      $$\Delta\lambda = \frac{\sin\lambda\,\Delta X - \cos\lambda\,\Delta Y}{(N+h)\cos\varphi}
+        - \frac{(1-e^2)N + h}{N+h}\,\tan\varphi\,\big(\cos\lambda\,\varepsilon_x + \sin\lambda\,\varepsilon_y\big) + \varepsilon_z$$
+      $$\begin{aligned}
+      \Delta h = &-\cos\varphi\cos\lambda\,\Delta X - \cos\varphi\sin\lambda\,\Delta Y - \sin\varphi\,\Delta Z
+        + e^2 N\sin\varphi\cos\varphi\,\big(\sin\lambda\,\varepsilon_x - \cos\lambda\,\varepsilon_y\big) \\
+        &- \Big(\frac{a^2}{N}+h\Big)\Delta K + \frac{a}{N}\,\Delta a - (1-e^2)\,N\sin^2\varphi\,\frac{\Delta f}{1-f}
+      \end{aligned}$$
+      <p>
+        The ED50 coordinates are then \(\varphi + \Delta\varphi\), \(\lambda + \Delta\lambda\), \(h + \Delta h\). In
+        the code this is <code>molodenskij()</code>. The 2008 version took \(\Delta K\) from the destination datum
+        twice, so it was always 0; ED50 has no scale change, so the bug never showed.
+      </p>
+
+      <h2>Step 2: Gauss, onto the plane of the UTM zone</h2>
+      <p>
+        The zone \(z\) comes from the longitude, and the projection works with the longitude \(\ell\) measured from
+        the zone's central meridian \(\lambda_0\):
+      </p>
+      $$z = \left\lfloor \frac{\lambda + 180^\circ}{6^\circ} \right\rfloor + 1 \qquad \lambda_0 = 6^\circ z - 183^\circ \qquad \ell = \lambda - \lambda_0$$
+      <p>
+        Along the central meridian the projection keeps distances, so the northing starts from the length of the
+        meridian arc from the equator to \(\varphi\), the integral of \(M\):
+      </p>
+      $$B(\varphi) = \int_0^{\varphi} M(\psi)\,d\psi$$
+      <p>
+        There are closed-form series for \(B\), but in 2008 I integrated it numerically with the trapezoidal rule. I
+        found that 10 000 steps were enough: more steps did not change the first nine significant digits.
+      </p>
+      $$B(\varphi) \approx \frac{\varphi}{n}\left[\frac{M(0) + M(\varphi)}{2} + \sum_{k=1}^{n-1} M\!\left(\frac{k\,\varphi}{n}\right)\right] \qquad n = 10\,000$$
+      <p>
+        Away from the central meridian the Gauss formulas add a series in powers of \(\ell\). With
+        \(t = \tan\varphi\), the second eccentricity \(e'^2\) and \(\eta^2 = e'^2\cos^2\varphi\):
+      </p>
+      $$e'^2 = \frac{e^2}{1-e^2}$$
+      $$\begin{aligned}
+      x &= B(\varphi) + \frac{N}{2}\sin\varphi\cos\varphi\,\ell^2
+        + \frac{N}{24}\sin\varphi\cos^3\varphi\,\big(5 - t^2 + 9\eta^2 + 4\eta^4\big)\,\ell^4 \\
+        &\quad + \frac{N}{720}\sin\varphi\cos^5\varphi\,\big(61 - 58t^2 + t^4 + 270\eta^2 - 330\,\eta^2 t^2\big)\,\ell^6 \\[4pt]
+      y &= N\cos\varphi\,\ell + \frac{N}{6}\cos^3\varphi\,\big(1 - t^2 + \eta^2\big)\,\ell^3
+        + \frac{N}{120}\cos^5\varphi\,\big(5 - 18t^2 + t^4 + 14\eta^2 - 58\,\eta^2 t^2\big)\,\ell^5
+      \end{aligned}$$
+      <p>
+        \(x\) points north and \(y\) east, and here \(a, e^2, M, N\) are those of ED50. In the code this is
+        <code>gauss()</code>. The 2008 version computed \(e'^2\) as \(e^4/(1-e^2)\) instead of \(e^2/(1-e^2)\). Since
+        \(\eta^2\) only appears in small correction terms, the error was at most about 14 cm near the edge of a zone.
+      </p>
+
+      <h2>Step 3: UTM scale factor and false origin</h2>
+      <p>
+        UTM scales the plane by \(k_0 = 0.9996\). The scale is then 0.9996 on the central meridian and exactly 1 on two
+        lines about 180 km either side, so the scale error stays within about 1 in 1 000 across the zone instead of
+        only growing towards the edges. UTM also adds a false origin so that coordinates are never negative: 500 km
+        east, and 10 000 km north in the southern hemisphere.
+      </p>
+      $$\text{East} = k_0\,y + 500\,000\ \text{m} \qquad
+        \text{North} = \begin{cases} k_0\,x & \varphi \ge 0 \\ k_0\,x + 10\,000\,000\ \text{m} & \varphi < 0 \end{cases}$$
+      <p>
+        The 2008 code left out the southern false northing, so points south of the equator had negative northings.
+        That is the one fix in 2026 that changed results by more than a few centimetres.
+      </p>
+
+      <h2>A worked example</h2>
+      <p>The test point in the 2008 article, near Trieste:</p>
+      <table>
+        <tbody>
+          <tr><th scope="row">WGS84</th><td>45° 45′ 12.20809″ N, 14° 1′ 30.28015″ E, 589 m</td></tr>
+          <tr><th scope="row">ED50 after step 1</th><td>45° 45′ 15.3914″ N, 14° 1′ 33.7034″ E, 546.95 m</td></tr>
+          <tr><th scope="row">Zone</th><td>33, central meridian 15° E, so \(\ell = -0^\circ\,58'\,26.3''\)</td></tr>
+          <tr><th scope="row">After step 2</th><td>\(x = 5\,069\,330.82\) m, \(y = -75\,783.75\) m</td></tr>
+          <tr><th scope="row">UTM ED50</th><td>zone 33 N, East 424 246.56 m, North 5 067 303.09 m</td></tr>
+        </tbody>
+      </table>
+      <p>
+        The 2008 self-test checks the rounded values: 5 067 303, 424 247 and 547 m. In 2010 a surveyor asked me to
+        convert the positions of pipes laid on the seabed off Isola del Giglio. The first point,
+        42° 21.298′ N, 10° 55.439′ E, is in zone 32: East 658 538 m, North 4 691 177 m.
+      </p>
+
+      <h2>Accuracy</h2>
+      <p>
+        I checked the restored code against an exact reference: the geocentric shift, then the Krüger series for the
+        transverse Mercator projection, which is accurate to well under a millimetre. At test points from Lisbon to
+        Helsinki, and in the southern hemisphere, the two agree within 1 cm. The tests are in
+        <a href="https://github.com/lordalcol/wgs84-utm-js/tree/main/tests">the repository</a>.
+      </p>
+      <p>
+        That is the accuracy of the arithmetic, not of the datum. A single shift for all of Europe is good to a few
+        metres; national mapping agencies publish regional parameters and grids for better results.
+      </p>
+      <p>
+        In 2008 a conversion took a few tenths of a second, which I considered fine for real-time use. I tested it in
+        Internet Explorer 5 to 7, Firefox 1.5 to 3, Opera 9.5 and Safari 3. Today it takes about 3 ms, nearly all of it
+        in the 10 000-step integral.
+      </p>
+    </main>
+
+    <footer class="footer">
+      <p>Written in 2008 by <a href="https://lorenzodalcol.com">Lorenzo Dal Col</a>, restored in 2026.</p>
+    </footer>
+
+    <script defer src="vendor/katex/katex.min.js"></script>
+    <script defer src="vendor/katex/auto-render.min.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        renderMathInElement(document.querySelector(".doc"), {
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "\\(", right: "\\)", display: false },
+          ],
+          throwOnError: false,
+        });
+      });
+    </script>
+  </body>
+</html>

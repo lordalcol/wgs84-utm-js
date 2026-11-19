@@ -1,51 +1,82 @@
-﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml">
-<head>
-	<title>WGS84-UTM</title>
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <link rel="stylesheet" type="text/css" href="style.css"></link>
-	<script type="text/javascript" src="RotationElipsoid.js"></script>
-	<script type="text/javascript" src="Molodenskij.js"></script>
-	<script type="text/javascript" src="Gauss.js"></script>
-	<script type="text/javascript" src="Main.js"></script>
-</head>
-<body>
-<script type="text/javascript">
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WGS84 to UTM (ED50)</title>
+    <meta name="description" content="A WGS84 to UTM (ED50) coordinate converter I wrote in JavaScript in 2008, restored in 2026, with a map." />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img class="logo" src="favicon.svg" alt="" />
+        <div>
+          <h1>WGS84 to UTM (ED50)</h1>
+          <p>A coordinate converter from 2008, restored</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="btn ghost" href="how-it-works.html">How it works</a>
+        <a class="btn ghost" href="https://github.com/lordalcol/wgs84-utm-js">GitHub</a>
+      </nav>
+    </header>
 
-function trasforma() {
-	var latD = parseFloat(document.getElementById('latD').value);
-	var latM = parseFloat(document.getElementById('latM').value);
-	var latP = parseFloat(document.getElementById('latP').value);
-	var lngD = parseFloat(document.getElementById('lngD').value);
-	var lngM = parseFloat(document.getElementById('lngM').value);
-	var lngP = parseFloat(document.getElementById('lngP').value);
-	var H = parseFloat(document.getElementById('h').value);
+    <main class="layout">
+      <section class="stage" aria-label="Map">
+        <div id="map"></div>
+      </section>
 
-	var LAMBDA = toRadians(latD, latM, latP);
-	var PHI = toRadians(lngD, lngM, lngP);
-				
-	var converted = convert(PHI, LAMBDA, H);
-	var output = '\n<strong>UTM</strong>\n' +
-	'N: ' + Math.round(converted.x) + ' m\n' + 
-	'E: ' + Math.round(converted.y) + ' m\n' +
-	'h: ' + Math.round(converted.h) + ' m\n';
-	document.getElementById("risultato").innerHTML = output;
-}
-</script>
-<h1>Conversione di coordinate WGS84-UTM</h1>
-<h3>Inserisci latitudine, longitudine, altezza:</h3>
-<pre>
-Esempio: 
-45° 45' 12.20809"
-14° 1' 30.28015"
-589 m
+      <aside class="panel">
+        <form id="form" autocomplete="off">
+          <h2>WGS84 position</h2>
+          <label class="field">
+            <span>Latitude</span>
+            <input id="lat" inputmode="decimal" spellcheck="false" placeholder="45 45 12.20809 or 45.7534" />
+          </label>
+          <label class="field">
+            <span>Longitude</span>
+            <input id="lon" inputmode="decimal" spellcheck="false" placeholder="14 1 30.28015 or 14.0251" />
+          </label>
+          <label class="field">
+            <span>Height (m)</span>
+            <input id="h" inputmode="decimal" spellcheck="false" value="0" />
+          </label>
+          <p class="hint">Degrees, minutes and seconds or decimal degrees. Negative or S/W for south and west. Or click the map.</p>
+          <p id="error" class="error" hidden></p>
+          <button class="btn primary wide" type="submit">Convert</button>
+        </form>
 
-<strong>WGS84</strong>
-Lat: <input type="text" style="width: 25px;" id="latD" value="0" />° <input type="text" style="width: 25px;" id="latM" value="0" />' <input type="text" style="width: 75px;" id="latP" value="0" />"
-Lng: <input type="text" style="width: 25px;" id="lngD" value="0" />° <input type="text" style="width: 25px;" id="lngM" value="0" />' <input type="text" style="width: 75px;" id="lngP" value="0" />"
-h:   <input type="text" style="width: 25px;" id="h" value="0" /> m
-<input type="button" value="calcola" onclick="trasforma();" /><input type="button" value="test" onclick="alert(test());" />
-<span id="risultato" style="margin: 1em;"></span>
-</pre>
-</body>
+        <h2>UTM on ED50</h2>
+        <dl class="result" id="result">
+          <div><dt>Zone</dt><dd id="zone">–</dd></div>
+          <div><dt>Easting</dt><dd id="east">–</dd></div>
+          <div><dt>Northing</dt><dd id="north">–</dd></div>
+          <div><dt>ED50 height</dt><dd id="height">–</dd></div>
+        </dl>
+
+        <h2>Examples</h2>
+        <div class="examples">
+          <button class="btn" type="button" data-lat="45 45 12.20809" data-lon="14 1 30.28015" data-h="589">Trieste, the 2008 test point</button>
+          <button class="btn" type="button" data-lat="42 21.298" data-lon="10 55.439" data-h="0">Isola del Giglio, 2010</button>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="footer">
+      <p>
+        Written in 2008 by <a href="https://lorenzodalcol.com">Lorenzo Dal Col</a>, restored in 2026.
+        The conversion runs the 2008 code (<a href="2008.html">original page</a>). Map data © OpenStreetMap contributors.
+      </p>
+    </footer>
+
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="RotationElipsoid.js"></script>
+    <script src="Molodenskij.js"></script>
+    <script src="Gauss.js"></script>
+    <script src="Main.js"></script>
+    <script src="app.js"></script>
+  </body>
 </html>
