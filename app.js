@@ -42,23 +42,42 @@
   }).addTo(map);
   var marker = null;
 
+  // The grid: "utm" for UTM on ED50, "gb" for Gauss-Boaga on Roma 40.
+  function grid() {
+    return document.querySelector('input[name="grid"]:checked').value;
+  }
+  function setGrid(value) {
+    var input = document.querySelector('input[name="grid"][value="' + value + '"]');
+    if (input) input.checked = true;
+    var gb = grid() === "gb";
+    $("result-title").textContent = gb ? "Gauss-Boaga on Roma 40" : "UTM on ED50";
+    $("height-label").textContent = gb ? "Roma 40 height" : "ED50 height";
+  }
+
   function show(lat, lon, h, pan) {
     var error = $("error");
+    lon = ((lon + 540) % 360) - 180;
+    var gb = grid() === "gb";
+    if (gb && !(lat >= 35 && lat <= 48 && lon >= 5.5 && lon <= 19)) {
+      error.textContent = "Gauss-Boaga is the grid of Italian maps: pick a point in Italy, or switch to UTM.";
+      error.hidden = false;
+      return;
+    }
     if (!(lat >= -80 && lat <= 84)) {
       error.textContent = "UTM covers latitudes from 80° S to 84° N.";
       error.hidden = false;
       return;
     }
     error.hidden = true;
-    lon = ((lon + 540) % 360) - 180;
 
-    var r = convert(lon * DEG, lat * DEG, h);
-    $("zone").textContent = r.zone + " " + r.hemisphere;
+    var r = gb ? convertGaussBoaga(lon * DEG, lat * DEG, h) : convert(lon * DEG, lat * DEG, h);
+    var zone = gb ? r.zone + (r.zone === "Ovest" ? " (West)" : " (East)") : r.zone + " " + r.hemisphere;
+    $("zone").textContent = zone;
     $("east").textContent = formatMetres(r.y);
     $("north").textContent = formatMetres(r.x);
     $("height").textContent = formatMetres(r.h);
 
-    var label = "<strong>" + r.zone + r.hemisphere + "</strong> " + Math.round(r.y) + " E, " + Math.round(r.x) + " N";
+    var label = "<strong>" + (gb ? "GB " + r.zone : r.zone + r.hemisphere) + "</strong> " + Math.round(r.y) + " E, " + Math.round(r.x) + " N";
     if (marker) marker.setLatLng([lat, lon]).setPopupContent(label);
     else {
       marker = L.marker([lat, lon], { draggable: true }).addTo(map).bindPopup(label);
@@ -69,6 +88,9 @@
       });
     }
     marker.openPopup();
+    // Keep the address in step with the converted point, so it can be shared.
+    var q = "?lat=" + lat.toFixed(6) + "&lon=" + lon.toFixed(6) + "&h=" + h + (gb ? "&grid=gb" : "");
+    history.replaceState(null, "", location.pathname + q);
     if (pan) map.setView([lat, lon], Math.max(map.getZoom(), 13));
   }
 
@@ -106,27 +128,33 @@
       $("lat").value = b.dataset.lat;
       $("lon").value = b.dataset.lon;
       $("h").value = b.dataset.h;
+      setGrid(b.dataset.grid || "utm");
       show(parseAngle(b.dataset.lat, "N", "S"), parseAngle(b.dataset.lon, "E", "W"), Number(b.dataset.h), true);
     });
   });
 
-  // Keep the address in step with the converted point.
-  map.on("popupopen", function () {
-    if (!marker) return;
-    var p = marker.getLatLng();
-    var q = "?lat=" + p.lat.toFixed(6) + "&lon=" + p.lng.toFixed(6) + "&h=" + readHeight();
-    history.replaceState(null, "", location.pathname + q);
-  });
-
   // A position in the address, for example ?lat=42.355&lon=10.924&h=0, is
-  // converted on load, so a result can be shared as a link.
+  // converted on load, so a result can be shared as a link. &grid=gb picks
+  // Gauss-Boaga.
   var query = new URLSearchParams(location.search);
   if (query.has("lat") && query.has("lon")) {
     $("lat").value = query.get("lat");
     $("lon").value = query.get("lon");
     if (query.has("h")) $("h").value = query.get("h");
+    setGrid(query.get("grid") === "gb" ? "gb" : "utm");
     $("form").requestSubmit();
   }
+
+  // Switching grid converts the current point again.
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="grid"]'), function (input) {
+    input.addEventListener("change", function () {
+      setGrid(grid());
+      if (marker) {
+        var p = marker.getLatLng();
+        show(p.lat, p.lng, readHeight(), false);
+      }
+    });
+  });
 
   // Exposed for the tests.
   window.parseAngle = parseAngle;

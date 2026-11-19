@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>WGS84 to UTM (ED50)</title>
-    <meta name="description" content="A WGS84 to UTM (ED50) coordinate converter I wrote in JavaScript in 2008, restored in 2026, with a map." />
+    <meta name="description" content="A WGS84 to UTM (ED50) and Gauss-Boaga (Roma 40) coordinate converter I wrote in JavaScript in 2008, restored in 2026, with a map." />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
     <link rel="stylesheet" href="app.css" />
@@ -45,22 +45,29 @@
             <input id="h" inputmode="decimal" spellcheck="false" value="0" />
           </label>
           <p class="hint">Degrees, minutes and seconds or decimal degrees. Negative or S/W for south and west. Or click the map.</p>
+          <fieldset class="grid-choice">
+            <legend>Convert to</legend>
+            <label><input type="radio" name="grid" value="utm" checked /> UTM on ED50</label>
+            <label><input type="radio" name="grid" value="gb" /> Gauss-Boaga on Roma 40 (Italy)</label>
+          </fieldset>
           <p id="error" class="error" hidden></p>
           <button class="btn primary wide" type="submit">Convert</button>
         </form>
 
-        <h2>UTM on ED50</h2>
+        <h2 id="result-title">UTM on ED50</h2>
         <dl class="result" id="result">
           <div><dt>Zone</dt><dd id="zone">–</dd></div>
           <div><dt>Easting</dt><dd id="east">–</dd></div>
           <div><dt>Northing</dt><dd id="north">–</dd></div>
-          <div><dt>ED50 height</dt><dd id="height">–</dd></div>
+          <div><dt id="height-label">ED50 height</dt><dd id="height">–</dd></div>
         </dl>
 
         <h2>Examples</h2>
         <div class="examples">
           <button class="btn" type="button" data-lat="45 45 12.20809" data-lon="14 1 30.28015" data-h="589">Trieste, the 2008 test point</button>
           <button class="btn" type="button" data-lat="42 21.298" data-lon="10 55.439" data-h="0">Isola del Giglio, 2010</button>
+          <button class="btn" type="button" data-lat="42 21.403" data-lon="10 55.677" data-h="0" data-grid="gb">Isola del Giglio, 2012, in Gauss-Boaga</button>
+          <button class="btn" type="button" data-lat="41.8902" data-lon="12.4922" data-h="30" data-grid="gb">Rome, the Colosseum, in Gauss-Boaga</button>
         </div>
       </aside>
     </main>
