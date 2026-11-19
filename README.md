@@ -36,7 +36,7 @@ The ED50 shift is the mean one for Europe (EPSG:1133), so the datum itself is go
 
 There is no build step. Serve the folder (for example `python -m http.server`) and open:
 
-- `index.html`, the 2026 page: a form and an OpenStreetMap map (with [Leaflet](https://leafletjs.com)). Click the map or type a position and it converts it with the 2008 scripts.
+- `index.html`, the 2026 page: a form and an OpenStreetMap map (with [Leaflet](https://leafletjs.com)). Click the map or type a position and it converts it with the 2008 scripts. The address keeps the point (`?lat=42.355&lon=10.924`), so a result can be shared as a link.
 - `how-it-works.html`, the formulas, typeset with [KaTeX](https://katex.org).
 - `2008.html`, the original 2008 page.
 

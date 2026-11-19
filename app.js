@@ -110,6 +110,24 @@
     });
   });
 
+  // Keep the address in step with the converted point.
+  map.on("popupopen", function () {
+    if (!marker) return;
+    var p = marker.getLatLng();
+    var q = "?lat=" + p.lat.toFixed(6) + "&lon=" + p.lng.toFixed(6) + "&h=" + readHeight();
+    history.replaceState(null, "", location.pathname + q);
+  });
+
+  // A position in the address, for example ?lat=42.355&lon=10.924&h=0, is
+  // converted on load, so a result can be shared as a link.
+  var query = new URLSearchParams(location.search);
+  if (query.has("lat") && query.has("lon")) {
+    $("lat").value = query.get("lat");
+    $("lon").value = query.get("lon");
+    if (query.has("h")) $("h").value = query.get("h");
+    $("form").requestSubmit();
+  }
+
   // Exposed for the tests.
   window.parseAngle = parseAngle;
 })();
