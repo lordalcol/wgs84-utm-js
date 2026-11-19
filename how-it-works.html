@@ -30,7 +30,8 @@
       <p class="lede">
         In 2008 I wrote a converter in JavaScript from WGS84 coordinates to UTM on the ED50 datum, and described it in
         an article for <em>Dev</em>, an Italian programming magazine (<a href="docs/Trasformazione%20di%20coordinate%20geografiche%20in%20Javascript%20(2008).pdf">the article, in Italian</a>).
-        This page sets out the formulas the code implements, with the fixes I made when I restored it in 2026.
+        This page sets out the formulas the code implements, with the fixes I made when I restored it in 2026, and
+        the Gauss-Boaga grid of Italian maps, which I added then.
       </p>
 
       <h2>The problem</h2>
@@ -101,7 +102,7 @@
       $$\begin{aligned}
       \Delta\varphi = \frac{1}{M+h}\Big[\,&\sin\varphi\cos\lambda\,\Delta X + \sin\varphi\sin\lambda\,\Delta Y - \cos\varphi\,\Delta Z
         + \Big(\frac{a^2}{N}+h\Big)\big(\sin\lambda\,\varepsilon_x - \cos\lambda\,\varepsilon_y\big) \\
-        &- e^2 N \sin\varphi\cos\varphi\,\Big(\Delta K + \frac{\Delta a}{a}\Big)
+        &+ e^2 N \sin\varphi\cos\varphi\,\Big(\Delta K - \frac{\Delta a}{a}\Big)
         - \big(M + (1-e^2)N\big)\sin\varphi\cos\varphi\,\frac{\Delta f}{1-f}\,\Big]
       \end{aligned}$$
       $$\Delta\lambda = \frac{\sin\lambda\,\Delta X - \cos\lambda\,\Delta Y}{(N+h)\cos\varphi}
@@ -113,8 +114,10 @@
       \end{aligned}$$
       <p>
         The ED50 coordinates are then \(\varphi + \Delta\varphi\), \(\lambda + \Delta\lambda\), \(h + \Delta h\). In
-        the code this is <code>molodenskij()</code>. The 2008 version took \(\Delta K\) from the destination datum
-        twice, so it was always 0; ED50 has no scale change, so the bug never showed.
+        the code this is <code>molodenskij()</code>. The 2008 version had two bugs in the scale change \(\Delta K\):
+        it took it from the destination datum twice, so it was always 0, and in \(\Delta\varphi\) it had the wrong
+        sign. ED50 has no scale change, so neither showed. Roma 40 has one, and the second bug put its northings
+        0.49 m off until I fixed it.
       </p>
 
       <h2>Step 2: Gauss, onto the plane of the UTM zone</h2>
@@ -182,16 +185,92 @@
         42° 21.298′ N, 10° 55.439′ E, is in zone 32: East 658 538 m, North 4 691 177 m.
       </p>
 
+      <h2>Gauss-Boaga on Roma 40</h2>
+      <p>
+        Italian maps use their own grid. The IGM national maps and the regional technical maps (CTR) give positions in
+        Gauss-Boaga coordinates, on the Roma 40 datum: the International 1924 ellipsoid, oriented at Monte Mario in
+        Rome. In 2008 a reader of my blog asked for it, and I suggested switching the commented-out
+        <code>ITA40</code> datum in the code. That would not have worked: its flattening was given as \(e^2\), and
+        its rotations and scale were in arc seconds and parts per million where the code expects radians and a ratio.
+        In 2010 and 2012 a surveyor on Isola del Giglio asked me to convert positions for exactly these maps. In 2026 I
+        added it properly.
+      </p>
+      <p>
+        It uses the same two steps. Step 1 is the Molodensky formulas with the Roma 40 parameters for mainland Italy
+        (EPSG:1660), the official national set:
+      </p>
+      <table>
+        <tbody>
+          <tr><th scope="row">Shift \(\Delta X, \Delta Y, \Delta Z\)</th><td>−104.1 m, −49.1 m, −9.9 m</td></tr>
+          <tr><th scope="row">Rotations \(\varepsilon_x, \varepsilon_y, \varepsilon_z\)</th><td>−0.971″, 2.917″, −0.714″</td></tr>
+          <tr><th scope="row">Scale change \(\Delta K\)</th><td>−11.68 ppm</td></tr>
+          <tr><th scope="row">Ellipsoid</th><td>International 1924: \(a\) = 6 378 388 m, \(1/f\) = 297</td></tr>
+        </tbody>
+      </table>
+      <p>
+        EPSG publishes the rotations as 0.971″, −2.917″, 0.714″ in the <em>position vector</em> convention; the
+        formulas above use the <em>coordinate frame</em> convention, which has the opposite signs. In the code the
+        rotations are converted to radians and the scale change to a ratio, \(-11.68 \times 10^{-6}\).
+      </p>
+      <p>
+        Step 2 is the same Gauss formulas, with Italy's two zones in place of the UTM ones, and no false northing:
+      </p>
+      <table>
+        <thead>
+          <tr><th>Zone</th><th>Longitudes</th><th>\(\lambda_0\)</th><th>False easting</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Ovest (West)</td><td>west of 12° E</td><td>9° E</td><td>1 500 000 m</td></tr>
+          <tr><td>Est (East)</td><td>12° E and east</td><td>15° E</td><td>2 520 000 m</td></tr>
+        </tbody>
+      </table>
+      $$\text{East} = k_0\,y + \begin{cases} 1\,500\,000\ \text{m} & \text{Ovest} \\ 2\,520\,000\ \text{m} & \text{Est} \end{cases}
+        \qquad \text{North} = k_0\,x \qquad k_0 = 0.9996$$
+      <p>
+        The central meridians are those of UTM zones 32 and 33, but the coordinates are on another ellipsoid
+        position, so they differ: for the Isola del Giglio point of 2010 the Gauss-Boaga northing is 182 m smaller
+        than the UTM ED50 one (4 690 995 m against 4 691 177 m), and the easting is 55 m smaller once the different
+        false eastings are taken off. Southern Puglia, east of 18° E, stays in the East zone.
+      </p>
+      <p>
+        These are the eight points the surveyor sent in May 2012, the "Le Scole" groups off Isola del Giglio, with
+        their Gauss-Boaga coordinates (West zone). I found no reply of mine to that email, so here it is now.
+      </p>
+      <table>
+        <thead>
+          <tr><th>Point</th><th>WGS84</th><th>East</th><th>North</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">North 1</th><td>42° 21.403′ N, 10° 55.677′ E</td><td>1 658 806 m</td><td>4 691 196 m</td></tr>
+          <tr><th scope="row">North 2</th><td>42° 21.403′ N, 10° 55.715′ E</td><td>1 658 858 m</td><td>4 691 198 m</td></tr>
+          <tr><th scope="row">North 3</th><td>42° 21.375′ N, 10° 55.677′ E</td><td>1 658 807 m</td><td>4 691 145 m</td></tr>
+          <tr><th scope="row">North 4</th><td>42° 21.307′ N, 10° 55.715′ E</td><td>1 658 862 m</td><td>4 691 020 m</td></tr>
+          <tr><th scope="row">South 1</th><td>42° 21.336′ N, 10° 55.720′ E</td><td>1 658 867 m</td><td>4 691 074 m</td></tr>
+          <tr><th scope="row">South 2</th><td>42° 21.336′ N, 10° 55.791′ E</td><td>1 658 965 m</td><td>4 691 076 m</td></tr>
+          <tr><th scope="row">South 3</th><td>42° 21.307′ N, 10° 55.720′ E</td><td>1 658 869 m</td><td>4 691 020 m</td></tr>
+          <tr><th scope="row">South 4</th><td>42° 21.307′ N, 10° 55.791′ E</td><td>1 658 966 m</td><td>4 691 022 m</td></tr>
+        </tbody>
+      </table>
+      <p>
+        One on the mainland, for comparison: the Colosseum in Rome, 41.8902° N, 12.4922° E, is in the East zone at
+        East 2 311 950 m, North 4 640 637 m. The <a href="index.html?lat=42%2021.403&amp;lon=10%2055.677&amp;h=0&amp;grid=gb">converter</a>
+        has both as examples.
+      </p>
+
       <h2>Accuracy</h2>
       <p>
-        I checked the restored code against an exact reference: the geocentric shift, then the Krüger series for the
-        transverse Mercator projection, which is accurate to well under a millimetre. At test points from Lisbon to
-        Helsinki, and in the southern hemisphere, the two agree within 1 cm. The tests are in
+        I checked the restored code two ways. The first is an exact reference of my own: the geocentric shift, then
+        the Krüger series for the transverse Mercator projection, which is accurate to well under a millimetre. At
+        test points from Lisbon to Helsinki, and in the southern hemisphere, the two agree within 1 cm. The second is
+        <a href="https://proj.org">PROJ</a>, the library behind most GIS software, with the EPSG transformations: at
+        18 points in Italy, both grids agree within 3 mm. The tests are in
         <a href="https://github.com/lordalcol/wgs84-utm-js/tree/main/tests">the repository</a>.
       </p>
       <p>
         That is the accuracy of the arithmetic, not of the datum. A single shift for all of Europe is good to a few
-        metres; national mapping agencies publish regional parameters and grids for better results.
+        metres, and EPSG gives the Roma 40 parameters an accuracy of about 4 m on the mainland; Sardinia and Sicily
+        have their own sets. National mapping agencies publish regional parameters and grids for better results; in
+        Italy, the IGM grids give sub-metre accuracy.
       </p>
       <p>
         In 2008 a conversion took a few tenths of a second, which I considered fine for real-time use. I tested it in
