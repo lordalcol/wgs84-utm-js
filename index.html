@@ -1,0 +1,51 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml">
+<head>
+	<title>WGS84-UTM</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <link rel="stylesheet" type="text/css" href="style.css"></link>
+	<script type="text/javascript" src="RotationElipsoid.js"></script>
+	<script type="text/javascript" src="Molodenskij.js"></script>
+	<script type="text/javascript" src="Gauss.js"></script>
+	<script type="text/javascript" src="Main.js"></script>
+</head>
+<body>
+<script type="text/javascript">
+
+function trasforma() {
+	var latD = parseFloat(document.getElementById('latD').value);
+	var latM = parseFloat(document.getElementById('latM').value);
+	var latP = parseFloat(document.getElementById('latP').value);
+	var lngD = parseFloat(document.getElementById('lngD').value);
+	var lngM = parseFloat(document.getElementById('lngM').value);
+	var lngP = parseFloat(document.getElementById('lngP').value);
+	var H = parseFloat(document.getElementById('h').value);
+
+	var LAMBDA = toRadians(latD, latM, latP);
+	var PHI = toRadians(lngD, lngM, lngP);
+				
+	var converted = convert(PHI, LAMBDA, H);
+	var output = '\n<strong>UTM</strong>\n' +
+	'N: ' + Math.round(converted.x) + ' m\n' + 
+	'E: ' + Math.round(converted.y) + ' m\n' +
+	'h: ' + Math.round(converted.h) + ' m\n';
+	document.getElementById("risultato").innerHTML = output;
+}
+</script>
+<h1>Conversione di coordinate WGS84-UTM</h1>
+<h3>Inserisci latitudine, longitudine, altezza:</h3>
+<pre>
+Esempio: 
+45° 45' 12.20809"
+14° 1' 30.28015"
+589 m
+
+<strong>WGS84</strong>
+Lat: <input type="text" style="width: 25px;" id="latD" value="0" />° <input type="text" style="width: 25px;" id="latM" value="0" />' <input type="text" style="width: 75px;" id="latP" value="0" />"
+Lng: <input type="text" style="width: 25px;" id="lngD" value="0" />° <input type="text" style="width: 25px;" id="lngM" value="0" />' <input type="text" style="width: 75px;" id="lngP" value="0" />"
+h:   <input type="text" style="width: 25px;" id="h" value="0" /> m
+<input type="button" value="calcola" onclick="trasforma();" /><input type="button" value="test" onclick="alert(test());" />
+<span id="risultato" style="margin: 1em;"></span>
+</pre>
+</body>
+</html>
