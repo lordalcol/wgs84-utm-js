@@ -1,0 +1,8 @@
+{
+  "name": "wgs84-utm-js",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

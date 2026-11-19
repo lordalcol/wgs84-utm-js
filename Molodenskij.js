@@ -1,5 +1,7 @@
+// Molodensky formulas: moves a point (LAMBDA latitude, PHI longitude, H height)
+// from one datum to another without going through geocentric coordinates.
 function molodenskij(fromElipsoid, destElipsoid, PHI, LAMBDA, H) {
-	// valori dell'ellissoide di partenza
+	// source ellipsoid
 	var alpha = fromElipsoid.alpha;
 	var a = fromElipsoid.a;
 	// delta
@@ -11,13 +13,13 @@ function molodenskij(fromElipsoid, destElipsoid, PHI, LAMBDA, H) {
 	var Dx0 = destElipsoid.orientation.x0 - fromElipsoid.orientation.x0;
 	var Dy0 = destElipsoid.orientation.y0 - fromElipsoid.orientation.y0;
 	var Dz0 = destElipsoid.orientation.z0 - fromElipsoid.orientation.z0;
-	var DK = destElipsoid.orientation.K - destElipsoid.orientation.K;
-	// RHO - Raggio di curvatura del meridiano
+	var DK = destElipsoid.orientation.K - fromElipsoid.orientation.K;
+	// radius of curvature of the meridian
 	var RHO = fromElipsoid.RHO(LAMBDA);
-	// N_G - Gran Normale
+	// radius of curvature of the prime vertical
 	var N_G = fromElipsoid.N_G(LAMBDA);
 	
-	// scorciatoie
+	// shortcuts
 	var sinPHI = Math.sin(PHI);
 	var cosPHI = Math.cos(PHI);
 	var sinLAMBDA = Math.sin(LAMBDA);
