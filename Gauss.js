@@ -1,8 +1,10 @@
 // Gauss formulas: projects a point (LAMBDA latitude, PHI longitude) of the
-// given ellipsoid onto the plane of its 6-degree UTM zone.
-// Returns [northing, easting, height, zone] before the UTM scale factor and
+// given ellipsoid onto a transverse Mercator plane. The central meridian is
+// the one of the point's 6-degree UTM zone, unless centralMeridian (radians)
+// is given, as for Gauss-Boaga.
+// Returns [northing, easting, height, zone] before the scale factor and
 // false origin, which convert() applies.
-function gauss(surface, m) {
+function gauss(surface, m, centralMeridian) {
 	var precision = 10000;
 	var PHI = m.PHI;
 	var LAMBDA = m.LAMBDA;
@@ -16,7 +18,7 @@ function gauss(surface, m) {
 	// UTM zone (1 to 60) and longitude from its central meridian
 	var zoneWidth = 6 * Math.PI / 180;
 	var zone = Math.floor((PHI + Math.PI) / zoneWidth) % 60 + 1;
-	var centralMeridian = (zone - 31) * zoneWidth + zoneWidth / 2;
+	if (centralMeridian === undefined) centralMeridian = (zone - 31) * zoneWidth + zoneWidth / 2;
 	var dPHI = PHI - centralMeridian;
 	// shortcuts
 	var sinLAMBDA = Math.sin(LAMBDA);

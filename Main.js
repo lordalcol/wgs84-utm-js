@@ -18,6 +18,14 @@ function test() {
 var WGS84 = new RotationElipsoid(6378137.0, 1/298.257223563, new Orientation(0,0,0,0,0,0,0));
 var ED50 = new RotationElipsoid(6378388, 1/297, new Orientation(-87,-98,-121,0,0,0,0));
 
+// Roma 40 (Monte Mario): the International 1924 ellipsoid with the national
+// parameters for mainland Italy (EPSG:1660), accurate to about 4 m. The scale
+// change is in parts per million and the rotations in arc seconds; molodenskij()
+// expects a ratio and radians, with the rotations in the coordinate frame
+// convention, so the signs are the opposite of EPSG's position vector values.
+var SECOND = Math.PI / 180 / 3600;
+var ROMA40 = new RotationElipsoid(6378388, 1/297, new Orientation(-104.1, -49.1, -9.9, -11.68e-6, -0.971 * SECOND, 2.917 * SECOND, -0.714 * SECOND));
+
 // Converts WGS84 (PHI longitude, LAMBDA latitude in radians, H height in m)
 // to UTM coordinates on the ED50 datum.
 function convert(PHI, LAMBDA, H) {
@@ -29,6 +37,20 @@ function convert(PHI, LAMBDA, H) {
 	if (LAMBDA < 0) x += 10000000;
 	var y = g[1] * 0.9996 + 500000;
 	return { x: x, y: y, h: g[2], zone: g[3], hemisphere: LAMBDA < 0 ? 'S' : 'N' };
+}
+
+// Converts WGS84 (PHI longitude, LAMBDA latitude in radians, H height in m)
+// to Gauss-Boaga coordinates on Roma 40, the grid of Italian regional maps.
+// The West zone (Fuso Ovest) is centred on 9 degrees E with a false easting of
+// 1500 km, the East zone (Fuso Est) on 15 degrees E with 2520 km; the boundary
+// is 12 degrees E.
+function convertGaussBoaga(PHI, LAMBDA, H) {
+	var m = molodenskij(WGS84, ROMA40, PHI, LAMBDA, H);
+	var west = m.PHI < 12 * Math.PI / 180;
+	var g = gauss(ROMA40, m, (west ? 9 : 15) * Math.PI / 180);
+	var x = g[0] * 0.9996;
+	var y = g[1] * 0.9996 + (west ? 1500000 : 2520000);
+	return { x: x, y: y, h: g[2], zone: west ? 'Ovest' : 'Est' };
 }
 
 // Converts degrees, minutes and seconds to radians. The sign of the degrees

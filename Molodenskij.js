@@ -36,7 +36,7 @@ function molodenskij(fromElipsoid, destElipsoid, PHI, LAMBDA, H) {
 	var o3 = (cosLAMBDA / tempVar) * Dz0;
 	var o4 = (tempVar2 / tempVar) * sinPHI * DEx;
 	var o5 = (tempVar2 / tempVar) * cosPHI * DEy;
-	var o6 = (tempVar5 / tempVar) * cosLAMBDA * sinLAMBDA * ( DK + Da / a);
+	var o6 = (tempVar5 / tempVar) * cosLAMBDA * sinLAMBDA * ( Da / a - DK);
 	var o7 = ((RHO + tempVar6 * N_G) / tempVar) * cosLAMBDA * sinLAMBDA * ( Dalpha / (1 - alpha));
 	// delta LAMBDA
 	var dLAMBDA = o1+o2-o3+o4-o5-o6-o7;
